@@ -1,0 +1,38 @@
+# vagrant version == 2
+Vagrant.configure(2) do |config|
+	# config.vm.box = "generic/centos/7"
+	# config.vm.box_url = "https://app.vagrantup.com/generic/boxes/centos7"
+
+	config.vm.define "wilS" do |server|
+		server.vm.hostname = "wilS"
+		# server.vm.network :private_network, ip: "192.168.56.110"
+		# server.vm.provider :virtualbox do |v|
+		server.vm.provider :docker do |d|
+			d.image = "centos:7"
+			d.cmd = ["tail", "-f", "/dev/null"]
+			# v.customize [
+			# 	"modifyvm", :id,
+			# 	"--name", "wilS",
+			# 	"--cpus", "1",
+			# 	"--memory", "512"
+			# ]
+		end
+		server.vm.provision :shell, inline: <<-SHELL
+			# [...]
+			echo "Hello, World!"
+		SHELL
+		server.vm.provision "shell", path: "scripts/server.sh"
+	end
+	# config.vm.define "wilSW" do |serverworker|
+	# 	serverworker.vm.hostname = "wilSW"
+	# 	serverworker.vm.network REDACTED, ip: "192.168.56.111"
+	# 	serverworker.vm.provider REDACTED do |v|
+	# 		v.customize ["modifyvm", :id, "--name", "wilSW"]
+	# 		[...]
+	# 	end
+	# 	config.vm.provision "shell", inline: <<-SHELL
+	# 		[..]
+	# 	SHELL
+	# 	serverworker.vm.provision "shell", path: REDACTED
+	# end
+end
