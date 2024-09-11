@@ -1,38 +1,40 @@
-# vagrant version == 2
-Vagrant.configure(2) do |config|
-	# config.vm.box = "generic/centos/7"
-	# config.vm.box_url = "https://app.vagrantup.com/generic/boxes/centos7"
 
-	config.vm.define "wilS" do |server|
-		server.vm.hostname = "wilS"
-		# server.vm.network :private_network, ip: "192.168.56.110"
-		# server.vm.provider :virtualbox do |v|
-		server.vm.provider :docker do |d|
-			d.image = "centos:7"
-			d.cmd = ["tail", "-f", "/dev/null"]
-			# v.customize [
-			# 	"modifyvm", :id,
-			# 	"--name", "wilS",
-			# 	"--cpus", "1",
-			# 	"--memory", "512"
-			# ]
+SERVER_NAME = "lpeggyS"
+SERVER_IP = "192.168.56.110"
+
+WORKER_NAME = "lpeggySW"
+WORKER_IP =  "192.168.56.111"
+
+Vagrant.configure(2) do |config|
+	config.vm.box = "ubuntu/xenial64"
+	config.vm.box_url = "https://app.vagrantup.com/ubuntu/boxes/xenial64"
+	config.vm.provider :virtualbox do |v|
+		v.customize [
+			"modifyvm", :id,
+			"--name", SERVER_NAME,
+			"--cpus", "1",
+			"--memory", "512"
+		]
 		end
+
+	config.vm.define SERVER_NAME do |server|
+		server.vm.hostname = SERVER_NAME
+		server.vm.network :private_network, ip: SERVER_IP
+
 		server.vm.provision :shell, inline: <<-SHELL
-			# [...]
-			echo "Hello, World!"
+			echo "Server provisioned, starting server script"
 		SHELL
-		server.vm.provision "shell", path: "scripts/server.sh"
+		server.vm.provision "shell", path: "scripts/server.sh", args: [SERVER_IP]
 	end
-	# config.vm.define "wilSW" do |serverworker|
-	# 	serverworker.vm.hostname = "wilSW"
-	# 	serverworker.vm.network REDACTED, ip: "192.168.56.111"
-	# 	serverworker.vm.provider REDACTED do |v|
-	# 		v.customize ["modifyvm", :id, "--name", "wilSW"]
-	# 		[...]
-	# 	end
-	# 	config.vm.provision "shell", inline: <<-SHELL
-	# 		[..]
+
+	# config.vm.define WORKER_NAME do |serverworker|
+	# 	serverworker.vm.hostname = WORKER_NAME
+	# 	serverworker.vm.network :private_network, ip: WORKER_IP
+
+	# 	# config.vm.provision "shell", inline: <<-SHELL
+	# 	serverworker.vm.provision "shell", inline: <<-SHELL
+	# 		echo "Worker provisioned, starting worker script"
 	# 	SHELL
-	# 	serverworker.vm.provision "shell", path: REDACTED
+	# 	serverworker.vm.provision "shell", path: "scripts/worker.sh", args: [WORKER_IP]
 	# end
 end
