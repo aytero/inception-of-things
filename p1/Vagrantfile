@@ -7,52 +7,46 @@ WORKER_IP =  "192.168.56.111"
 
 
 server_script = <<-SHELL
-    sudo -i
     apk add curl
-    export INSTALL_K3S_EXEC="--write-kubeconfig-mode=644 --bind-address=#{SERVER_IP} --node-external-ip=#{SERVER_IP} --flannel-iface=eth1"
+    export INSTALL_K3S_EXEC="--write-kubeconfig-mode=644 --bind-address=#{SERVER_IP} --advertise-address=#{SERVER_IP} --node-ip=#{SERVER_IP} --flannel-iface=eth1"
     curl -sfL https://get.k3s.io | sh -
     echo "Sleeping for 5 seconds to wait for k3s to start"
     sleep 5
-    cp /var/lib/rancher/k3s/server/token /vagrant_shared
-    cp /etc/rancher/k3s/k3s.yaml /vagrant_shared
-	# export KUBECONFIG="/etc/rancher/k3s/k3s.yaml"
+    cp /var/lib/rancher/k3s/server/token /vagrant
+    cp /etc/rancher/k3s/k3s.yaml /vagrant
+	ifconfig eth1 broadcast 192.168.56.255
     SHELL
 
-workert_script = <<-SHELL
-    sudo -i
+worker_script = <<-SHELL
+    # sudo -i
     apk add curl
-    export K3S_TOKEN_FILE=/vagrant_shared/token
-    export K3S_URL=https://#{SERVER_IP}:6443
-    export INSTALL_K3S_EXEC="--flannel-iface=eth1"
+    export K3S_TOKEN_FILE="/vagrant/token"
+    # export K3S_URL=https://#{SERVER_IP}:6443
+    export INSTALL_K3S_EXEC="agent --server https://#{SERVER_IP}:6443 --node-ip=#{WORKER_IP} --flannel-iface=eth1"
     curl -sfL https://get.k3s.io | sh -
     SHELL
 
 
 Vagrant.configure(2) do |config|
 	config.vm.box = "generic/alpine314"
-	# config.vm.box_url = "https://app.vagrantup.com/ubuntu/boxes/xenial64"
-
+	config.vm.box_url = "https://app.vagrantup.com/generic/boxes/alpine318"
 
 	config.vm.define SERVER_NAME, primary: true do |server|
 		server.vm.network "private_network", ip: SERVER_IP
-		server.vm.synced_folder "./tmp", "/vagrant_shared"
+		server.vm.synced_folder "./tmp", "/vagrant", create: true
 		server.vm.hostname = SERVER_NAME
 		server.vm.provider "virtualbox" do |v|
-			v.cpus = 2
+			v.cpus = 1
 			v.memory = 1024
 			v.name = SERVER_NAME
 		end
 
-		server.vm.provision "shell", inline: server_script
-		# server.vm.provision :shell, inline: <<-SHELL
-		# 	echo "Server provisioned, starting server script"
-		# SHELL
-		# server.vm.provision "shell", privileged: true, path: "scripts/server.sh", args: [SERVER_IP]
+		server.vm.provision "shell", privileged: true, inline: server_script
 	end
 
 	config.vm.define WORKER_NAME do |serverworker|
 		serverworker.vm.network "private_network", ip: WORKER_IP
-		serverworker.vm.synced_folder "./tmp", "/vagrant_shared"
+		serverworker.vm.synced_folder "./tmp", "/vagrant"
 		serverworker.vm.hostname = WORKER_NAME
 		serverworker.vm.provider "virtualbox" do |v|
 			v.cpus = 1
@@ -60,10 +54,6 @@ Vagrant.configure(2) do |config|
 			v.name = WORKER_NAME
 		end
 
-		serverworker.vm.provision "shell", inline: worker_script
-		# serverworker.vm.provision "shell", inline: <<-SHELL
-		# 	echo "Worker provisioned, starting worker script"
-		# SHELL
-		# serverworker.vm.provision "shell", privileged: true, path: "scripts/worker.sh", args: [SERVER_IP, WORKER_IP]
+		serverworker.vm.provision "shell", privileged: true, inline: worker_script
 	end
 end
