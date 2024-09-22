@@ -1,0 +1,61 @@
+
+SERVER_NAME = "lpeggyS"
+SERVER_IP = "192.168.56.110"
+BROADCAST_IP = "192.168.56.255"
+
+
+server_script = <<-SHELL
+    apk add curl
+    export INSTALL_K3S_EXEC="--write-kubeconfig-mode=644 --bind-address=#{SERVER_IP} --advertise-address=#{SERVER_IP} --node-ip=#{SERVER_IP} --flannel-iface=eth1"
+    curl -sfL https://get.k3s.io | sh -
+    # echo "Sleeping for 10 seconds to wait for k3s to start"
+    # sleep 10
+
+	echo "Waiting for Kubernetes API to be available..."
+	until kubectl get nodes &>/dev/null; do
+	echo "Waiting for k3s cluster to be ready..."
+		sleep 2
+	done
+	
+	echo "Waiting for all system pods to be ready..."
+	kubectl wait --for=condition=Ready pod -l 'component=kube-apiserver' -n kube-system --timeout=180s
+	echo "k3s is ready. Applying Kubernetes configuration files..."
+
+    cp /etc/rancher/k3s/k3s.yaml /vagrant
+	ifconfig eth1 broadcast "192.168.56.255"
+    SHELL
+
+
+Vagrant.configure(2) do |config|
+	config.vm.box = "generic/alpine314"
+	config.vm.box_url = "https://app.vagrantup.com/generic/boxes/alpine318"
+
+	config.vm.define SERVER_NAME, primary: true do |server|
+		server.vm.network "private_network", ip: SERVER_IP
+		server.vm.synced_folder "./deployment", "/vagrant"
+		server.vm.hostname = SERVER_NAME
+		server.vm.provider "virtualbox" do |v|
+			v.cpus = 1
+			v.memory = 1024
+			v.name = SERVER_NAME
+		end
+		server.vm.provision "shell", privileged: true, inline: server_script
+
+		server.vm.provision "shell", inline: <<-SHELL
+			kubectl apply -f /vagrant/app1/deployment.yaml
+			kubectl apply -f /vagrant/app1/service.yaml
+			echo "App1 deployed successfully"
+
+			kubectl apply -f /vagrant/app2/deployment.yaml
+			kubectl apply -f /vagrant/app2/service.yaml
+			echo "App2 deployed successfully"
+
+			kubectl apply -f /vagrant/app3/deployment.yaml
+			kubectl apply -f /vagrant/app3/service.yaml
+			echo "App3 deployed successfully"
+
+			kubectl apply -f /vagrant/ingress.yaml
+		SHELL
+		# server.vm.provision "shell", privileged: true, path: "deployment/script.sh"
+	end
+end

@@ -1,3 +1,6 @@
 /*/.vagrant/
+/*/tmp/
+
+p2/deployment/k3s.yaml
 
 *.log
