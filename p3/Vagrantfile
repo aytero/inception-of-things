@@ -1,0 +1,51 @@
+
+SERVER_NAME = "lpeggyS"
+SERVER_IP = "192.168.56.110"
+BROADCAST_IP = "192.168.56.255"
+
+
+server_script = <<-SHELL
+    apk add curl git
+	apk add docker
+
+	addgroup docker
+	adduser vagrant docker
+
+	service docker start
+	# curl -fsSL https://get.docker.com -o get-docker.sh
+	# sudo sh get-docker.sh
+
+	curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+	sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+	curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash	
+
+    # Create k3d cluster
+    k3d cluster create iot
+
+	mkdir -p /home/vagrant/.kube
+	touch /home/vagrant/.kube/config
+	k3d kubeconfig write iot --output ~/.kube/config
+	chown -R vagrant:vagrant /home/vagrant/.kube
+
+    SHELL
+
+
+Vagrant.configure(2) do |config|
+	config.vm.box = "generic/alpine314"
+	config.vm.box_url = "https://app.vagrantup.com/generic/boxes/alpine318"
+
+	config.vm.define SERVER_NAME, primary: true do |server|
+		server.vm.network "private_network", ip: SERVER_IP
+		server.vm.synced_folder ".", "/vagrant"
+		server.vm.hostname = SERVER_NAME
+		server.vm.provider "virtualbox" do |v|
+			v.cpus = 2
+			# v.memory = 2048
+			v.memory = 4096
+			v.name = SERVER_NAME
+		end
+		server.vm.provision "shell", privileged: true, inline: server_script
+
+	end
+end

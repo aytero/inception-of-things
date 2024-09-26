@@ -1,5 +1,6 @@
 # inception-of-things
 
+# p1
 vagrant box choice
 https://stackshare.io/stackups/alpine-linux-vs-centos
 https://portal.cloud.hashicorp.com/vagrant/discover
@@ -30,7 +31,30 @@ https://jaehong21.com/posts/k3s/02-access-outside/
 
 ifconfig eth1
 
+Remove the old host key for this IP manually
+Use the ssh-keygen command to remove the offending line:
+```bash
+ssh-keygen -R 192.168.56.110
+ssh-keygen -R 192.168.56.111
+```
 
+https://stackoverflow.com/questions/10864372/how-to-ssh-to-vagrant-without-actually-running-vagrant-ssh
+
+### save the config to a file
+vagrant ssh-config > vagrant-ssh
+
+### run ssh with the file.
+ssh -F vagrant-ssh [vm-name]
+
+
+ssh vagrant@IP -p PORT -i path/to/privatekey
+
+
+
+# p2
+
+
+https://github.com/paulbouwer/hello-kubernetes
 
 In Kubernetes, it is generally recommended to apply the Deployment configuration before the Service configuration. This ensures that the pods are created and running before the Service tries to route traffic to them.
 
@@ -43,26 +67,16 @@ https://addons.mozilla.org/en-US/firefox/addon/modify-header-value/
 
 
 
-# add hosts
+## add hosts
+```bash
 echo "192.168.56.110 app1.com" >> /etc/hosts
 echo "192.168.56.110 app2.com" >> /etc/hosts
 echo "192.168.56.110 app3.com" >> /etc/hosts
 cat /etc/hosts
-
-Remove the old host key for this IP manually
-Use the ssh-keygen command to remove the offending line:
-```bash
-ssh-keygen -R 192.168.56.110
-ssh-keygen -R 192.168.56.111
 ```
 
-https://stackoverflow.com/questions/10864372/how-to-ssh-to-vagrant-without-actually-running-vagrant-ssh
+# p3
 
-# save the config to a file
-vagrant ssh-config > vagrant-ssh
+k3d cluster list
 
-# run ssh with the file.
-ssh -F vagrant-ssh [vm-name]
-
-
-ssh vagrant@IP -p PORT -i path/to/privatekey
+kubectl scale deployment wil-playground --replicas=3 -n dev
