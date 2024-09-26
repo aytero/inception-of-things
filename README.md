@@ -38,11 +38,16 @@ In Kubernetes, it is generally recommended to apply the Deployment configuration
 curl -H "Host:app1.com" 192.168.56.110
 curl 192.168.56.110 => default app3
 
-sudo vi /etc/hosts
-192.168.56.110  app1.com
-192.168.56.110  app2.com
-192.168.56.110  app3.com
 
+https://addons.mozilla.org/en-US/firefox/addon/modify-header-value/
+
+
+
+# add hosts
+echo "192.168.56.110 app1.com" >> /etc/hosts
+echo "192.168.56.110 app2.com" >> /etc/hosts
+echo "192.168.56.110 app3.com" >> /etc/hosts
+cat /etc/hosts
 
 Remove the old host key for this IP manually
 Use the ssh-keygen command to remove the offending line:
