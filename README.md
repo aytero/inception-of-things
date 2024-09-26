@@ -2,6 +2,7 @@
 
 vagrant box choice
 https://stackshare.io/stackups/alpine-linux-vs-centos
+https://portal.cloud.hashicorp.com/vagrant/discover
 
 `--advertise-address`   
 Purpose: This option specifies the IP address that the node should advertise to other nodes in the cluster for inter-node communication.
@@ -42,3 +43,21 @@ sudo vi /etc/hosts
 192.168.56.110  app2.com
 192.168.56.110  app3.com
 
+
+Remove the old host key for this IP manually
+Use the ssh-keygen command to remove the offending line:
+```bash
+ssh-keygen -R 192.168.56.110
+ssh-keygen -R 192.168.56.111
+```
+
+https://stackoverflow.com/questions/10864372/how-to-ssh-to-vagrant-without-actually-running-vagrant-ssh
+
+# save the config to a file
+vagrant ssh-config > vagrant-ssh
+
+# run ssh with the file.
+ssh -F vagrant-ssh [vm-name]
+
+
+ssh vagrant@IP -p PORT -i path/to/privatekey
