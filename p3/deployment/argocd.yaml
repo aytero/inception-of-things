@@ -8,7 +8,6 @@ spec:
 
   source:
     repoURL: https://github.com/aytero/iot-config-lpeggy.git
-    # repoURL: https://github.com/aytero/iot-argocd-lpeggy.git
     targetRevision: HEAD
     path: wil42
   destination: 
