@@ -1,0 +1,192 @@
+
+SERVER_NAME = "lpeggyS"
+SERVER_IP = "192.168.56.110"
+BROADCAST_IP = "192.168.56.255"
+
+
+server_script = <<-SHELL
+    apk add curl git
+	apk add docker
+
+	addgroup docker
+	adduser vagrant docker
+
+	service docker start
+
+	echo "Installing kubectl"
+	curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+	sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+	echo "kubectl installation done"
+
+	echo "Installing k3d"
+	curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash	
+	echo "k3d installation done"
+    SHELL
+
+
+
+cluster_script = <<-SHELL
+	# ----------------------- Setup kubernetes cluster ----------------------- 
+
+	# Create k3d cluster
+	k3d cluster create iot
+
+	# Wait for k3d cluster to be ready
+	echo "Waiting for k3d cluster to be ready..."
+	while [[ $(kubectl get nodes --no-headers 2>/dev/null | wc -l) -eq 0 ]]; do
+	echo "no nodes in the cluster yet. Waiting..."
+	sleep 5
+	done
+	kubectl wait --for=condition=ready nodes --all --timeout=600s
+	echo "k3d cluster is ready"
+
+	# Write kubeconfig to the user's home directory, to use kubectl without sudo
+	mkdir -p /home/vagrant/.kube
+	touch /home/vagrant/.kube/config
+	k3d kubeconfig write iot --output /home/vagrant/.kube/config
+	chown -R vagrant:vagrant /home/vagrant/.kube
+
+	# ----------------------- Install ArgoCD ----------------------- 
+
+	echo "installing argocd"
+	kubectl create namespace argocd
+
+	kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+	echo "argocd installation done"
+
+	# Wait for all ArgoCD pods to be created in the argocd namespace
+	echo "waiting for ArgoCD pods to be created..."
+	while [[ $(kubectl get pods -n argocd --no-headers 2>/dev/null | wc -l) -eq 0 ]]; do
+	echo "no pods found in argocd namespace yet. Waiting..."
+	sleep 5
+	done
+
+	kubectl wait --for=condition=ready pod --all -n argocd --timeout=600s
+	echo "argocd app is ready"
+
+	# get password to argocd (user: admin)
+	kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | base64 -d; echo
+
+
+	# ----------------------- Install Helm and GitLab -----------------------
+
+	kubectl create namespace gitlab
+
+	curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+
+	helm repo add gitlab https://charts.gitlab.io/
+	helm repo update
+
+	# deploy gitlab to k3d - https://docs.gitlab.com/charts/installation/deployment.html
+	# 	               - https://gitlab.com/gitlab-org/charts/gitlab/-/tree/master/examples?ref_type=heads
+	helm upgrade --install gitlab gitlab/gitlab \
+		-n gitlab \
+		-f https://gitlab.com/gitlab-org/charts/gitlab/raw/master/examples/values-minikube-minimum.yaml \
+		--set global.hosts.domain=localhost \
+		--set global.hosts.externalIP=0.0.0.0 \
+		--set global.hosts.https=false \
+		--timeout 600s
+	# helm upgrade --install gitlab gitlab/gitlab -n gitlab -f https://gitlab.com/gitlab-org/charts/gitlab/raw/master/examples/values-minikube-minimum.yaml --set global.hosts.domain=localhost --set global.hosts.externalIP=0.0.0.0 --set global.hosts.https=false --timeout 600s
+
+	# if failed
+	# helm uninstall gitlab -n gitlab
+	# kubectl delete namespace gitlab
+
+	# helm list
+
+	kubectl wait --for=condition=ready --timeout=1200s pod -l app=webservice -n gitlab
+	# if timeout
+	# helm upgrade gitlab gitlab/gitlab -n gitlab
+
+	# kubectl apply -f deployment/gitlab-ingress.yaml
+
+	kubectl get secret gitlab-gitlab-initial-root-password -n gitlab -o jsonpath="{.data.password}" | base64 --d; echo
+
+	kubectl port-forward --address 0.0.0.0 svc/gitlab-webservice-default -n gitlab 8080:8181 2>&1 >/dev/null &
+	# localhost 8080
+	# kubectl port-forward --address 0.0.0.0 svc/gitlab-webservice-default -n gitlab 8080:8181
+
+	# ps aux | grep 'kubectl port-forward' | grep -v grep
+	# kill <PID>  # Replace <PID> with the actual PID]
+
+	# Creating access token
+
+	# Run gitlab-rails console
+	# kubectl -n gitlab exec -it -c toolbox gitlab-toolbox-574c9b58b5-q9nkg -- gitlab-rails console
+
+	# generate_token.rb
+	kubectl cp generate_token.rb gitlab-toolbox-<podid>:/tmp/generate_token.rb -n gitlab
+	kubectl exec -it <pod-name> -n gitlab -- gitlab-rails runner /tmp/generate_token.rb
+
+
+	# Create GitLba repostory
+	curl --request POST "http://localhost:8080/api/v4/projects" --header "PRIVATE-TOKEN: your-token-string-here" --header "Content-Type: application/json" --data '{"name": "my-new-repo"}'
+	echo "Repository '$PROJECT_NAME' created in GitLab"
+	# You can retrieve the project ID with the following command:
+
+	# bash
+	# Copy code
+	# curl --request GET "http://localhost:<forwarded-port>/api/v4/projects" \
+	# 	--header "PRIVATE-TOKEN: <ACCESS-TOKEN>"
+
+	# curl --request POST "http://localhost:8080/api/v4/projects/1/repository/files/docs%2FREADME.md" --header "PRIVATE-TOKEN: your-token-string-here" --header "Content-Type: application/json" --data '{"branch": "main","content": "This is a readme file","commit_message": "Add docs/README.md"}'
+	content = "$(cat deployment/wil42/deployment.yaml | jq -sR .)"
+	curl --request POST "http://localhost:8080/api/v4/projects/1/repository/files/wil42%2Fdeployment.yaml" --header "PRIVATE-TOKEN: your-token-string-here" --header "Content-Type: application/json" --data '{"branch": "main","content": '"$(cat deployment/wil42/deployment.yaml | jq -sR .)"',"commit_message": "Add wil42/deployment.yaml"}'
+	curl --request POST "http://localhost:8080/api/v4/projects/1/repository/files/wil42%2Fservice.yaml" --header "PRIVATE-TOKEN: your-token-string-here" --header "Content-Type: application/json" --data '{"branch": "main","content": '"$(cat deployment/wil42/service.yaml | jq -sR .)"',"commit_message": "Add wil42/service.yaml"}'
+
+	# curl --request PUT "http://localhost:8080/api/v4/projects/<project-id>/repository/files/<file-path>" \
+    #  --header "PRIVATE-TOKEN: your-token-string-here" \
+    #  --header "Content-Type: application/json" \
+    #  --data '{
+    #    "branch": "main",
+    #    "content": "'"$(cat path/to/your/file | jq -sR .)"'",
+    #    "commit_message": "Update <file-path>"
+    #  }'
+
+	curl --request PUT "http://localhost:8080/api/v4/projects/1" --header "PRIVATE-TOKEN: your-token-string-here" --header "Content-Type: application/json" --data '{"visibility": "public"}'
+
+
+	
+
+
+	# ----------------------- Setup wil42 application ----------------------- 
+
+	# kubectl create namespace dev
+
+	# # Create the argocd-wil42 application
+	# kubectl apply -f /vagrant/deployment/argocd.yaml
+
+
+	# while [[ $(kubectl get pods -n dev --no-headers 2>/dev/null | wc -l) -eq 0 ]]; do
+	# echo "no pods found in dev namespace yet. Waiting..."
+	# sleep 5
+	# done
+	# kubectl wait --for=condition=ready pod --all -n dev --timeout=600s
+
+
+	# https://{vm-ip}:8080
+	#  &>/dev/null &
+	# echo "port forwarding argocd server to 3005, go to https://localhost:3005"
+	# kubectl port-forward --address 0.0.0.0 svc/argocd-server -n argocd 3005:443
+SHELL
+
+
+Vagrant.configure(2) do |config|
+	config.vm.box = "generic/alpine314"
+	config.vm.box_url = "https://app.vagrantup.com/generic/boxes/alpine318"
+
+	config.vm.define SERVER_NAME, primary: true do |server|
+		server.vm.network "private_network", ip: SERVER_IP
+		server.vm.synced_folder ".", "/vagrant"
+		server.vm.hostname = SERVER_NAME
+		server.vm.provider "virtualbox" do |v|
+			v.cpus = 2
+			# v.memory = 2048
+			v.memory = 4096
+			v.name = SERVER_NAME
+		end
+		server.vm.provision "shell", privileged: true, inline: server_script
+		server.vm.provision "shell", privileged: true, inline: cluster_script
+	end
+end

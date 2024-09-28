@@ -80,3 +80,10 @@ cat /etc/hosts
 k3d cluster list
 
 kubectl scale deployment wil-playground --replicas=3 -n dev
+
+
+# Bonus
+
+gitlab rails console in a helm chart
+https://docs.gitlab.com/ee/administration/operations/rails_console.html?tab=Helm+chart+%28Kubernetes%29
+
