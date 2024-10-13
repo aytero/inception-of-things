@@ -7,7 +7,7 @@ spec:
   project: default
 
   source:
-    repoURL: http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/root/my-new-repo.git
+    repoURL: http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/root/iot-config-lpeggy.git
     targetRevision: HEAD
     path: wil42
   destination: 

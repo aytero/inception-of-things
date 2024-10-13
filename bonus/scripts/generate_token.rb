@@ -5,8 +5,7 @@ token = user.personal_access_tokens.create(
     scopes: [:api],
     expires_at: Date.today + 30
 )
-    # s3cretP3rsonalT0ken
-token.set_token('token')
+token.set_token('token1')
 token.save!
 # Print the token
-puts token.token
+# puts token.token
