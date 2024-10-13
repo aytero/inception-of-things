@@ -53,7 +53,7 @@ done
 
 echo "waiting for ArgoCD pods to be ready..."
 kubectl wait --for=condition=ready pod --all -n argocd --timeout=600s
-echo "ArgoCD app is ready"
+echo "ArgoCD pods are ready"
 
 # get password to argocd (user: admin)
 ARGOCD_PWD=$(kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | base64 -d)
