@@ -17,7 +17,7 @@ server_script = <<-SHELL
 
 
 Vagrant.configure(2) do |config|
-	config.vm.box = "generic/alpine314"
+	config.vm.box = "generic/alpine318"
 	config.vm.box_url = "https://app.vagrantup.com/generic/boxes/alpine318"
 
 	config.vm.define SERVER_NAME, primary: true do |server|
